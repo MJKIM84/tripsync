@@ -73,6 +73,25 @@ export async function createTrip(req: Request, res: Response, next: NextFunction
 
     const data = tripSchema.parse(req.body);
 
+    // Build schedule entries for each day if both dates provided
+    const scheduleEntries: { dayNumber: number; date: Date; title: string; sortOrder: number; createdBy: string }[] = [];
+    if (data.startDate && data.endDate) {
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      for (let i = 0; i < diffDays; i++) {
+        const date = new Date(start);
+        date.setDate(date.getDate() + i);
+        scheduleEntries.push({
+          dayNumber: i + 1,
+          date,
+          title: `Day ${i + 1}`,
+          sortOrder: 0,
+          createdBy: req.user.id,
+        });
+      }
+    }
+
     const trip = await prisma.trip.create({
       data: {
         ...data,
@@ -83,6 +102,9 @@ export async function createTrip(req: Request, res: Response, next: NextFunction
         members: {
           create: { userId: req.user.id, role: 'owner' },
         },
+        ...(scheduleEntries.length > 0 ? {
+          schedules: { create: scheduleEntries },
+        } : {}),
       },
       include: {
         owner: { select: { id: true, name: true, avatarUrl: true } },
