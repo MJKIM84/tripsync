@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+server/uploads/photos/
+server/uploads/documents/
+server/uploads/avatars/
+server/uploads/chat/
+.DS_Store
+tsconfig.tsbuildinfo

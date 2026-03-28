@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                    String    @id @default(uuid()) @db.Uuid
+  email                 String    @unique @db.VarChar(255)
+  passwordHash          String    @map("password_hash") @db.VarChar(255)
+  name                  String    @db.VarChar(100)
+  avatarUrl             String?   @map("avatar_url")
+  bloodType             String?   @map("blood_type") @db.VarChar(5)
+  allergies             String?
+  emergencyContactName  String?   @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone String?   @map("emergency_contact_phone") @db.VarChar(20)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  ownedTrips      Trip[]          @relation("TripOwner")
+  tripMembers     TripMember[]
+  schedules       Schedule[]      @relation("ScheduleCreator")
+  journals        Journal[]
+  photos          Photo[]
+  places          Place[]
+  budgets         Budget[]
+  comments        Comment[]
+  notifications   Notification[]
+  checklists      Checklist[]
+  documents       Document[]
+  activityLogs    ActivityLog[]
+  chatMessages    ChatMessage[]
+  checklistItemsChecked ChecklistItem[] @relation("CheckedBy")
+  checklistItemsAssigned ChecklistItem[] @relation("AssignedTo")
+
+  @@map("users")
+}
+
+model Trip {
+  id               String    @id @default(uuid()) @db.Uuid
+  ownerId          String    @map("owner_id") @db.Uuid
+  title            String    @db.VarChar(200)
+  description      String?
+  coverImage       String?   @map("cover_image")
+  country          String?   @db.VarChar(100)
+  city             String?   @db.VarChar(100)
+  startDate        DateTime? @map("start_date") @db.Date
+  endDate          DateTime? @map("end_date") @db.Date
+  status           String    @default("planning") @db.VarChar(20)
+  tags             String[]
+  timezone         String?   @db.VarChar(50)
+  shareToken       String?   @unique @map("share_token") @db.VarChar(64)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  owner         User           @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members       TripMember[]
+  schedules     Schedule[]
+  journals      Journal[]
+  photos        Photo[]
+  places        Place[]
+  budgets       Budget[]
+  comments      Comment[]
+  notifications Notification[]
+  checklists    Checklist[]
+  documents     Document[]
+  activityLogs  ActivityLog[]
+  chatMessages  ChatMessage[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@map("trips")
+}
+
+model TripMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  tripId   String   @map("trip_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     String   @db.VarChar(20)
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz()
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@index([tripId])
+  @@index([userId])
+  @@map("trip_members")
+}
+
+model Schedule {
+  id           String    @id @default(uuid()) @db.Uuid
+  tripId       String    @map("trip_id") @db.Uuid
+  dayNumber    Int       @map("day_number")
+  date         DateTime? @db.Date
+  title        String    @db.VarChar(200)
+  description  String?
+  startTime    String?   @map("start_time") @db.VarChar(5)
+  endTime      String?   @map("end_time") @db.VarChar(5)
+  locationName String?   @map("location_name") @db.VarChar(200)
+  latitude     Decimal?  @db.Decimal(10, 8)
+  longitude    Decimal?  @db.Decimal(11, 8)
+  category     String?   @db.VarChar(50)
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdBy    String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  trip    Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  creator User? @relation("ScheduleCreator", fields: [createdBy], references: [id])
+
+  @@index([tripId, dayNumber])
+  @@map("schedules")
+}
+
+model Journal {
+  id           String   @id @default(uuid()) @db.Uuid
+  tripId       String   @map("trip_id") @db.Uuid
+  authorId     String   @map("author_id") @db.Uuid
+  date         DateTime @db.Date
+  title        String?  @db.VarChar(200)
+  content      String?
+  mood         String?  @db.VarChar(20)
+  locationName String?  @map("location_name") @db.VarChar(200)
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  trip   Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  author User    @relation(fields: [authorId], references: [id])
+  photos Photo[]
+
+  @@index([tripId, date])
+  @@map("journals")
+}
+
+model Photo {
+  id            String    @id @default(uuid()) @db.Uuid
+  tripId        String    @map("trip_id") @db.Uuid
+  uploaderId    String    @map("uploader_id") @db.Uuid
+  journalId     String?   @map("journal_id") @db.Uuid
+  filePath      String    @map("file_path")
+  thumbnailPath String?   @map("thumbnail_path")
+  mediumPath    String?   @map("medium_path")
+  fileName      String?   @map("file_name") @db.VarChar(255)
+  fileSize      BigInt?   @map("file_size")
+  mimeType      String?   @map("mime_type") @db.VarChar(50)
+  width         Int?
+  height        Int?
+  takenAt       DateTime? @map("taken_at") @db.Timestamptz()
+  locationName  String?   @map("location_name") @db.VarChar(200)
+  latitude      Decimal?  @db.Decimal(10, 8)
+  longitude     Decimal?  @db.Decimal(11, 8)
+  caption       String?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  uploader User     @relation(fields: [uploaderId], references: [id])
+  journal  Journal? @relation(fields: [journalId], references: [id])
+  budgets  Budget[]
+
+  @@index([tripId])
+  @@index([takenAt])
+  @@map("photos")
+}
+
+model Place {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  name      String   @db.VarChar(200)
+  address   String?
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+  category  String?  @db.VarChar(50)
+  notes     String?
+  rating    Int?     @db.SmallInt
+  addedBy   String?  @map("added_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip  Trip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  adder User? @relation(fields: [addedBy], references: [id])
+
+  @@index([tripId])
+  @@map("places")
+}
+
+model Budget {
+  id             String   @id @default(uuid()) @db.Uuid
+  tripId         String   @map("trip_id") @db.Uuid
+  paidBy         String   @map("paid_by") @db.Uuid
+  title          String   @db.VarChar(200)
+  amount         Decimal  @db.Decimal(12, 2)
+  currency       String   @default("KRW") @db.VarChar(3)
+  category       String?  @db.VarChar(50)
+  date           DateTime? @db.Date
+  splitAmong     String[] @map("split_among")
+  receiptPhotoId String?  @map("receipt_photo_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip         Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  payer        User   @relation(fields: [paidBy], references: [id])
+  receiptPhoto Photo? @relation(fields: [receiptPhotoId], references: [id])
+
+  @@index([tripId])
+  @@map("budgets")
+}
+
+model Comment {
+  id         String   @id @default(uuid()) @db.Uuid
+  tripId     String   @map("trip_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  targetType String   @map("target_type") @db.VarChar(20)
+  targetId   String   @map("target_id") @db.Uuid
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([targetType, targetId])
+  @@map("comments")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tripId    String?  @map("trip_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  title     String?  @db.VarChar(200)
+  message   String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip Trip? @relation(fields: [tripId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Checklist {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  title     String   @db.VarChar(200)
+  category  String   @default("general") @db.VarChar(50)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdBy String?  @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip    Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  creator User?           @relation(fields: [createdBy], references: [id])
+  items   ChecklistItem[]
+
+  @@index([tripId])
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  checklistId String    @map("checklist_id") @db.Uuid
+  title       String    @db.VarChar(300)
+  isChecked   Boolean   @default(false) @map("is_checked")
+  checkedBy   String?   @map("checked_by") @db.Uuid
+  checkedAt   DateTime? @map("checked_at") @db.Timestamptz()
+  assignedTo  String?   @map("assigned_to") @db.Uuid
+  dueDate     DateTime? @map("due_date") @db.Date
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  checker   User?     @relation("CheckedBy", fields: [checkedBy], references: [id])
+  assignee  User?     @relation("AssignedTo", fields: [assignedTo], references: [id])
+
+  @@index([checklistId])
+  @@map("checklist_items")
+}
+
+model Document {
+  id         String   @id @default(uuid()) @db.Uuid
+  tripId     String   @map("trip_id") @db.Uuid
+  uploaderId String   @map("uploader_id") @db.Uuid
+  title      String   @db.VarChar(200)
+  filePath   String   @map("file_path")
+  fileName   String?  @map("file_name") @db.VarChar(255)
+  fileSize   BigInt?  @map("file_size")
+  mimeType   String?  @map("mime_type") @db.VarChar(50)
+  category   String?  @db.VarChar(50)
+  visibility String   @default("all") @db.VarChar(20)
+  isCached   Boolean  @default(false) @map("is_cached")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip     Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  uploader User @relation(fields: [uploaderId], references: [id])
+
+  @@index([tripId])
+  @@map("documents")
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tripId      String   @map("trip_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  action      String   @db.VarChar(50)
+  targetType  String   @map("target_type") @db.VarChar(30)
+  targetId    String?  @map("target_id") @db.Uuid
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip Trip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([tripId, createdAt(sort: Desc)])
+  @@map("activity_logs")
+}
+
+model ChatMessage {
+  id            String   @id @default(uuid()) @db.Uuid
+  tripId        String   @map("trip_id") @db.Uuid
+  senderId      String   @map("sender_id") @db.Uuid
+  content       String?
+  messageType   String   @default("text") @map("message_type") @db.VarChar(20)
+  attachmentUrl String?  @map("attachment_url")
+  replyToId     String?  @map("reply_to_id") @db.Uuid
+  isPinned      Boolean  @default(false) @map("is_pinned")
+  readBy        String[] @default([]) @map("read_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip    Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  sender  User         @relation(fields: [senderId], references: [id])
+  replyTo ChatMessage? @relation("ChatReply", fields: [replyToId], references: [id])
+  replies ChatMessage[] @relation("ChatReply")
+
+  @@index([tripId, createdAt])
+  @@map("chat_messages")
+}
