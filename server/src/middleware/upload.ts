@@ -2,12 +2,11 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { AppError } from './errorHandler';
-import { isCloudinaryEnabled } from '../utils/cloudinary';
+import { isCloudStorageEnabled } from '../utils/storage';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
-const useCloud = isCloudinaryEnabled();
+const useCloud = isCloudStorageEnabled();
 
-// Memory storage for cloud uploads, disk for local
 const photoStorage = useCloud
   ? multer.memoryStorage()
   : multer.diskStorage({

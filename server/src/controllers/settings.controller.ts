@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
-import { isCloudinaryEnabled, uploadToCloudinary } from '../utils/cloudinary';
+import { isCloudStorageEnabled, uploadFile } from '../utils/storage';
 
 export async function getProfile(req: Request, res: Response, next: NextFunction) {
   try {
@@ -45,12 +45,13 @@ export async function uploadAvatar(req: Request, res: Response, next: NextFuncti
     if (!req.file) throw new AppError(400, 'FILE_REQUIRED', '파일이 필요합니다.');
 
     let avatarUrl: string;
-    if (isCloudinaryEnabled() && req.file.buffer) {
-      const result = await uploadToCloudinary(req.file.buffer, {
-        folder: 'avatars',
-        publicId: req.user.id,
+    if (isCloudStorageEnabled() && req.file.buffer) {
+      avatarUrl = await uploadFile(req.file.buffer, {
+        bucket: 'avatars',
+        folder: 'users',
+        fileName: `${req.user.id}.jpg`,
+        contentType: req.file.mimetype,
       });
-      avatarUrl = result.url;
     } else {
       avatarUrl = `/uploads/avatars/${req.file.filename}`;
     }

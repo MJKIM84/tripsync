@@ -4,7 +4,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
 import { param } from '../utils/params';
-import { isCloudinaryEnabled, uploadToCloudinary } from '../utils/cloudinary';
+import { isCloudStorageEnabled, uploadFile } from '../utils/storage';
 
 export async function getDocuments(req: Request, res: Response, next: NextFunction) {
   try {
@@ -27,11 +27,13 @@ export async function uploadDocument(req: Request, res: Response, next: NextFunc
     const { title, category, visibility } = req.body;
 
     let filePath: string;
-    if (isCloudinaryEnabled() && req.file.buffer) {
-      const result = await uploadToCloudinary(req.file.buffer, {
-        folder: `documents/${param(req, 'id')}`,
+    if (isCloudStorageEnabled() && req.file.buffer) {
+      filePath = await uploadFile(req.file.buffer, {
+        bucket: 'documents',
+        folder: param(req, 'id'),
+        fileName: req.file.originalname,
+        contentType: req.file.mimetype,
       });
-      filePath = result.url;
     } else {
       filePath = `/uploads/documents/${req.file.filename}`;
     }

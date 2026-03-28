@@ -4,7 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
 import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
-import { isCloudinaryEnabled, uploadToCloudinary, getCloudinaryUrl } from '../utils/cloudinary';
+import { isCloudStorageEnabled, uploadFile } from '../utils/storage';
 import sharp from 'sharp';
 import path from 'path';
 
@@ -44,26 +44,47 @@ export async function uploadPhotos(req: Request, res: Response, next: NextFuncti
     const photos = [];
 
     for (const file of req.files) {
-      if (isCloudinaryEnabled() && file.buffer) {
-        // Cloud upload
-        const result = await uploadToCloudinary(file.buffer, {
-          folder: `photos/${tripId}`,
+      if (isCloudStorageEnabled() && file.buffer) {
+        // Supabase Storage upload
+        const originalUrl = await uploadFile(file.buffer, {
+          bucket: 'photos',
+          folder: `originals/${tripId}`,
+          fileName: file.originalname,
+          contentType: file.mimetype,
         });
-        const thumbUrl = getCloudinaryUrl(result.publicId, { width: 300, height: 300, crop: 'fill' });
-        const mediumUrl = getCloudinaryUrl(result.publicId, { width: 800 });
+
+        // Generate and upload thumbnail
+        const thumbBuffer = await sharp(file.buffer).resize(300, 300, { fit: 'cover' }).jpeg({ quality: 80 }).toBuffer();
+        const thumbUrl = await uploadFile(thumbBuffer, {
+          bucket: 'photos',
+          folder: `thumbnails/${tripId}`,
+          fileName: file.originalname,
+          contentType: 'image/jpeg',
+        });
+
+        // Generate and upload medium
+        const mediumBuffer = await sharp(file.buffer).resize(800, null, { withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+        const mediumUrl = await uploadFile(mediumBuffer, {
+          bucket: 'photos',
+          folder: `medium/${tripId}`,
+          fileName: file.originalname,
+          contentType: 'image/jpeg',
+        });
+
+        const metadata = await sharp(file.buffer).metadata();
 
         const photo = await prisma.photo.create({
           data: {
             tripId,
             uploaderId: req.user!.id,
-            filePath: result.url,
+            filePath: originalUrl,
             thumbnailPath: thumbUrl,
             mediumPath: mediumUrl,
             fileName: file.originalname,
             fileSize: BigInt(file.size),
             mimeType: file.mimetype,
-            width: result.width,
-            height: result.height,
+            width: metadata.width,
+            height: metadata.height,
           },
           include: {
             uploader: { select: { id: true, name: true, avatarUrl: true } },
@@ -71,7 +92,7 @@ export async function uploadPhotos(req: Request, res: Response, next: NextFuncti
         });
         photos.push(photo);
       } else {
-        // Local upload (fallback)
+        // Local fallback
         const ext = path.extname(file.filename || file.originalname);
         const baseName = path.basename(file.filename || file.originalname, ext);
 
@@ -113,7 +134,7 @@ export async function uploadPhotos(req: Request, res: Response, next: NextFuncti
     });
 
     notifyTripMembers({
-      tripId: param(req, 'id'),
+      tripId,
       excludeUserId: req.user!.id,
       type: 'photo',
       title: '새 사진 업로드',
