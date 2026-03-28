@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { logActivity } from '../utils/activityLogger';
 import { param } from '../utils/params';
 
 export async function getChecklists(req: Request, res: Response, next: NextFunction) {
@@ -38,6 +39,18 @@ export async function createChecklist(req: Request, res: Response, next: NextFun
       data: { ...data, tripId: param(req, 'id'), createdBy: req.user.id },
       include: { items: true },
     });
+
+    if (req.user) {
+      logActivity({
+        tripId: param(req, 'id'),
+        userId: req.user.id,
+        action: 'created',
+        targetType: 'checklist',
+        targetId: checklist.id,
+        description: `${req.user.name}님이 "${checklist.title}" 체크리스트를 만들었습니다`,
+      });
+    }
+
     res.status(201).json({ success: true, data: checklist });
   } catch (error) {
     next(error);

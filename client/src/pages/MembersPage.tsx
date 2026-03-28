@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTripSocket } from '../hooks/useSocket';
-import { ArrowLeft, UserPlus, Users, Crown, Map, Home, UserCircle, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Users, Crown, Map, Home, UserCircle, X, Trash2, Link2, Copy, Check } from 'lucide-react';
 import api from '../services/api';
 import type { TripMember, ApiResponse } from '../types';
 import { useAuthStore } from '../stores/authStore';
@@ -49,6 +49,16 @@ export default function MembersPage() {
     },
   });
 
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ uid, role }: { uid: string; role: string }) =>
+      api.put(`/trips/${id}/members/${uid}`, { role }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members', id] });
+      toast.success('역할이 변경되었습니다.');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error?.message || '역할 변경에 실패했습니다.'),
+  });
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -82,10 +92,22 @@ export default function MembersPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${ROLE_LABELS[member.role].color}`}>
-                  {ROLE_LABELS[member.role].icon}
-                  {ROLE_LABELS[member.role].label}
-                </span>
+                {isOwner && member.role !== 'owner' ? (
+                  <select
+                    value={member.role}
+                    onChange={(e) => updateRoleMutation.mutate({ uid: member.userId, role: e.target.value })}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 cursor-pointer ${ROLE_LABELS[member.role].color}`}
+                  >
+                    {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'owner').map(([value, { label }]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${ROLE_LABELS[member.role].color}`}>
+                    {ROLE_LABELS[member.role].icon}
+                    {ROLE_LABELS[member.role].label}
+                  </span>
+                )}
                 {isOwner && member.role !== 'owner' && (
                   <button onClick={() => removeMutation.mutate(member.userId)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -106,6 +128,9 @@ function InviteModal({ tripId, onClose }: { tripId: string; onClose: () => void 
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('traveler');
+  const [inviteLink, setInviteLink] = useState('');
+  const [linkMode, setLinkMode] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const inviteMutation = useMutation({
     mutationFn: () => api.post(`/trips/${tripId}/members/invite`, { email, role }),
@@ -117,6 +142,25 @@ function InviteModal({ tripId, onClose }: { tripId: string; onClose: () => void 
     onError: (error: any) => toast.error(error.response?.data?.error?.message || '초대에 실패했습니다.'),
   });
 
+  const generateLinkMutation = useMutation({
+    mutationFn: () => api.post(`/trips/${tripId}/members/link`, { role }),
+    onSuccess: (res) => {
+      setInviteLink(res.data.data.link);
+    },
+    onError: (err: any) => toast.error('링크 생성에 실패했습니다.'),
+  });
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      toast.success('링크가 복사되었습니다.');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('복사에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
@@ -124,28 +168,78 @@ function InviteModal({ tripId, onClose }: { tripId: string; onClose: () => void 
           <h2 className="text-lg font-semibold">참여자 초대</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); inviteMutation.mutate(); }} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy/20" placeholder="friend@email.com" />
+
+        <div className="flex gap-2 mb-4">
+          <button type="button" onClick={() => setLinkMode(false)}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium ${!linkMode ? 'bg-navy text-white' : 'bg-gray-100 text-gray-600'}`}>
+            이메일 초대
+          </button>
+          <button type="button" onClick={() => setLinkMode(true)}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium ${linkMode ? 'bg-navy text-white' : 'bg-gray-100 text-gray-600'}`}>
+            링크 초대
+          </button>
+        </div>
+
+        {!linkMode ? (
+          <form onSubmit={e => { e.preventDefault(); inviteMutation.mutate(); }} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy/20" placeholder="friend@email.com" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
+              <select value={role} onChange={e => setRole(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <option value="traveler">동행자 (Traveler)</option>
+                <option value="guide">가이드 (Guide)</option>
+                <option value="family">가족 (Family)</option>
+                <option value="friend">친구 (Friend)</option>
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-600">취소</button>
+              <button type="submit" disabled={inviteMutation.isPending} className="flex-1 py-2 bg-navy text-white rounded-lg font-medium disabled:opacity-50">
+                {inviteMutation.isPending ? '초대 중...' : '초대'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
+              <select value={role} onChange={e => setRole(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <option value="traveler">동행자 (Traveler)</option>
+                <option value="guide">가이드 (Guide)</option>
+                <option value="family">가족 (Family)</option>
+                <option value="friend">친구 (Friend)</option>
+              </select>
+            </div>
+            {inviteLink ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">초대 링크</label>
+                <div className="flex gap-2">
+                  <input type="text" readOnly value={inviteLink}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-600 truncate" />
+                  <button type="button" onClick={handleCopyLink}
+                    className="px-3 py-2 bg-navy text-white rounded-lg text-sm font-medium flex items-center gap-1.5 shrink-0">
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied ? '복사됨' : '복사'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => generateLinkMutation.mutate()}
+                disabled={generateLinkMutation.isPending}
+                className="w-full py-2.5 bg-navy text-white rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                <Link2 className="w-4 h-4" />
+                {generateLinkMutation.isPending ? '생성 중...' : '초대 링크 생성'}
+              </button>
+            )}
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-600">닫기</button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
-            <select value={role} onChange={e => setRole(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy/20">
-              <option value="traveler">동행자 (Traveler)</option>
-              <option value="guide">가이드 (Guide)</option>
-              <option value="family">가족 (Family)</option>
-              <option value="friend">친구 (Friend)</option>
-            </select>
-          </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-600">취소</button>
-            <button type="submit" disabled={inviteMutation.isPending} className="flex-1 py-2 bg-navy text-white rounded-lg font-medium disabled:opacity-50">
-              {inviteMutation.isPending ? '초대 중...' : '초대'}
-            </button>
-          </div>
-        </form>
+        )}
       </div>
     </div>
   );

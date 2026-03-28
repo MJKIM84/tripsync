@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { logActivity } from '../utils/activityLogger';
 import { param } from '../utils/params';
 
 const placeSchema = z.object({
@@ -39,6 +40,18 @@ export async function createPlace(req: Request, res: Response, next: NextFunctio
       data: { ...data, tripId: param(req, 'id'), addedBy: req.user.id },
       include: { adder: { select: { id: true, name: true, avatarUrl: true } } },
     });
+
+    if (req.user) {
+      logActivity({
+        tripId: param(req, 'id'),
+        userId: req.user.id,
+        action: 'created',
+        targetType: 'place',
+        targetId: place.id,
+        description: `${req.user.name}님이 "${place.name}" 장소를 추가했습니다`,
+      });
+    }
+
     res.status(201).json({ success: true, data: place });
   } catch (error) {
     next(error);

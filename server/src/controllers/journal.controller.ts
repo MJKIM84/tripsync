@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
+import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
 
 const journalSchema = z.object({
@@ -77,6 +78,14 @@ export async function createJournal(req: Request, res: Response, next: NextFunct
       targetType: 'journal',
       targetId: journal.id,
       description: `${req.user.name}님이 여행 기록을 작성했습니다`,
+    });
+
+    notifyTripMembers({
+      tripId: param(req, 'id'),
+      excludeUserId: req.user!.id,
+      type: 'journal',
+      title: '새 기록 작성',
+      message: `${req.user!.name}님이 새 기록을 작성했습니다`,
     });
 
     res.status(201).json({ success: true, data: journal });

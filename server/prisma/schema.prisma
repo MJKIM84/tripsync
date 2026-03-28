@@ -36,6 +36,7 @@ model User {
   chatMessages    ChatMessage[]
   checklistItemsChecked ChecklistItem[] @relation("CheckedBy")
   checklistItemsAssigned ChecklistItem[] @relation("AssignedTo")
+  inviteLinks     InviteLink[]
 
   @@map("users")
 }
@@ -70,6 +71,7 @@ model Trip {
   documents     Document[]
   activityLogs  ActivityLog[]
   chatMessages  ChatMessage[]
+  inviteLinks   InviteLink[]
 
   @@index([ownerId])
   @@index([status])
@@ -338,4 +340,21 @@ model ChatMessage {
 
   @@index([tripId, createdAt])
   @@map("chat_messages")
+}
+
+model InviteLink {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  token     String   @unique @db.VarChar(64)
+  role      String   @db.VarChar(20)
+  createdBy String   @map("created_by") @db.Uuid
+  maxUses   Int?     @map("max_uses")
+  usedCount Int      @default(0) @map("used_count")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trip    Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("invite_links")
 }

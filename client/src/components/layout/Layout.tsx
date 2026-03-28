@@ -4,12 +4,14 @@ import { useAuthStore } from '../../stores/authStore';
 import { useLogout } from '../../hooks/useAuth';
 import { useState } from 'react';
 import NotificationDropdown, { useUnreadCount } from '../NotificationDropdown';
+import SearchModal from '../SearchModal';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogout();
   const [showMenu, setShowMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const unreadCount = useUnreadCount();
   const location = useLocation();
 
@@ -25,7 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </Link>
 
             <div className="flex items-center gap-1.5 md:gap-3">
-              <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hidden md:block">
+              <button onClick={() => setShowSearch(true)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
                 <Search className="w-5 h-5" />
               </button>
               <div className="relative">
@@ -133,6 +135,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
       </nav>
+      {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
     </div>
   );
 }

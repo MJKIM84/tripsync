@@ -97,6 +97,62 @@ export default function TripPage() {
         )}
       </div>
 
+      {/* Trip Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* D-Day / Status */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">여행 상태</h3>
+          {trip.startDate && (
+            <div className="text-center">
+              {(() => {
+                const now = new Date();
+                const start = new Date(trip.startDate);
+                const end = trip.endDate ? new Date(trip.endDate) : start;
+                const diffStart = Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const diffEnd = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffStart > 0) {
+                  return (
+                    <>
+                      <div className="text-3xl font-bold text-navy">D-{diffStart}</div>
+                      <div className="text-sm text-gray-500 mt-1">여행까지 {diffStart}일 남았습니다</div>
+                    </>
+                  );
+                } else if (diffEnd >= 0) {
+                  const currentDay = Math.abs(diffStart) + 1;
+                  return (
+                    <>
+                      <div className="text-3xl font-bold text-green-600">Day {currentDay}</div>
+                      <div className="text-sm text-gray-500 mt-1">여행 중입니다!</div>
+                    </>
+                  );
+                } else {
+                  return (
+                    <>
+                      <div className="text-2xl font-bold text-gray-400">여행 완료</div>
+                      <div className="text-sm text-gray-500 mt-1">{Math.abs(diffEnd)}일 전에 끝났습니다</div>
+                    </>
+                  );
+                }
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* Today's Schedule Preview */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            {trip.startDate && new Date(trip.startDate) <= new Date() ? '오늘 일정' : '첫째 날 일정'}
+          </h3>
+          {trip._count?.schedules ? (
+            <Link to={`/trips/${id}/schedule`} className="text-sm text-navy hover:underline">
+              {trip._count.schedules}개 일정 보기 →
+            </Link>
+          ) : (
+            <p className="text-sm text-gray-400">아직 일정이 없습니다</p>
+          )}
+        </div>
+      </div>
+
       {/* Navigation Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
         {NAV_ITEMS.map((item) => (

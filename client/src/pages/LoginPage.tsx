@@ -52,6 +52,10 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="text-right">
+              <Link to="/forgot-password" className="text-sm text-gray-500 hover:text-navy">비밀번호를 잊으셨나요?</Link>
+            </div>
+
             <button
               type="submit"
               disabled={loginMutation.isPending}

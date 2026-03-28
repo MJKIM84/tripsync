@@ -7,6 +7,8 @@ import CommentsSection from '../components/CommentsSection';
 import api from '../services/api';
 import type { Schedule, ApiResponse } from '../types';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   transport: <Plane className="w-4 h-4" />,
@@ -99,7 +101,14 @@ export default function SchedulePage() {
         <div className="space-y-6">
           {days.map((day) => (
             <div key={day}>
-              <h2 className="text-lg font-semibold mb-3 text-navy">Day {day}</h2>
+              <h2 className="text-lg font-semibold mb-3 text-navy">
+                Day {day}
+                {grouped[day][0]?.date && (
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    {format(new Date(grouped[day][0].date), 'M월 d일 (E)', { locale: ko })}
+                  </span>
+                )}
+              </h2>
               <div className="space-y-2">
                 {grouped[day].map((schedule) => (
                   <div key={schedule.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3 group">

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { sendEmail, passwordResetEmailHtml } from '../utils/email';
 
 const registerSchema = z.object({
   email: z.string().email('올바른 이메일을 입력해주세요.'),
@@ -213,6 +214,61 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
 
     res.json({ success: true, data: { message: '비밀번호가 변경되었습니다.' } });
   } catch (error) {
+    next(error);
+  }
+}
+
+export async function requestPasswordReset(req: Request, res: Response, next: NextFunction) {
+  try {
+    const schema = z.object({ email: z.string().email() });
+    const { email } = schema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({ success: true, data: { message: '이메일이 발송되었습니다.' } });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, purpose: 'password-reset' },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '1h' }
+    );
+
+    const appUrl = process.env.CLIENT_URL || 'https://tripsync-a3yw.onrender.com';
+    sendEmail(
+      email,
+      '[TripSync] 비밀번호 재설정',
+      passwordResetEmailHtml(`${appUrl}/reset-password?token=${token}`)
+    );
+
+    res.json({ success: true, data: { message: '이메일이 발송되었습니다.' } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const schema = z.object({
+      token: z.string(),
+      newPassword: z.string().min(8, '비밀번호는 8자 이상이어야 합니다.'),
+    });
+    const data = schema.parse(req.body);
+
+    const decoded = jwt.verify(data.token, process.env.JWT_SECRET || 'secret') as { id: string; purpose: string };
+    if (decoded.purpose !== 'password-reset') {
+      throw new AppError(400, 'INVALID_TOKEN', '유효하지 않은 토큰입니다.');
+    }
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+    await prisma.user.update({ where: { id: decoded.id }, data: { passwordHash } });
+
+    res.json({ success: true, data: { message: '비밀번호가 변경되었습니다.' } });
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      return next(new AppError(400, 'INVALID_TOKEN', '만료되었거나 유효하지 않은 토큰입니다.'));
+    }
     next(error);
   }
 }

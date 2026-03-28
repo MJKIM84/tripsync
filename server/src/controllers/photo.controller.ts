@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
+import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
 import sharp from 'sharp';
 import path from 'path';
@@ -83,6 +84,14 @@ export async function uploadPhotos(req: Request, res: Response, next: NextFuncti
       action: 'uploaded',
       targetType: 'photo',
       description: `${req.user.name}님이 사진 ${photos.length}장을 업로드했습니다`,
+    });
+
+    notifyTripMembers({
+      tripId: param(req, 'id'),
+      excludeUserId: req.user!.id,
+      type: 'photo',
+      title: '새 사진 업로드',
+      message: `${req.user!.name}님이 사진을 업로드했습니다`,
     });
 
     res.status(201).json({ success: true, data: photos });

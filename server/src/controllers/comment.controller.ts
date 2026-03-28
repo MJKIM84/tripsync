@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { logActivity } from '../utils/activityLogger';
+import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
 
 export async function getComments(req: Request, res: Response, next: NextFunction) {
@@ -35,6 +37,26 @@ export async function createComment(req: Request, res: Response, next: NextFunct
       data: { ...data, tripId: param(req, 'id'), userId: req.user.id },
       include: { user: { select: { id: true, name: true, avatarUrl: true } } },
     });
+
+    if (req.user) {
+      logActivity({
+        tripId: param(req, 'id'),
+        userId: req.user.id,
+        action: 'created',
+        targetType: 'comment',
+        targetId: comment.id,
+        description: `${req.user.name}님이 댓글을 남겼습니다`,
+      });
+    }
+
+    notifyTripMembers({
+      tripId: param(req, 'id'),
+      excludeUserId: req.user!.id,
+      type: 'comment',
+      title: '새 댓글',
+      message: `${req.user!.name}님이 댓글을 남겼습니다`,
+    });
+
     res.status(201).json({ success: true, data: comment });
   } catch (error) {
     next(error);

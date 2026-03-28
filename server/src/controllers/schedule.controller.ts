@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
+import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
 
 const scheduleSchema = z.object({
@@ -69,6 +70,14 @@ export async function createSchedule(req: Request, res: Response, next: NextFunc
       targetType: 'schedule',
       targetId: schedule.id,
       description: `${req.user.name}님이 Day ${data.dayNumber} 일정에 "${data.title}"을 추가했습니다`,
+    });
+
+    notifyTripMembers({
+      tripId: param(req, 'id'),
+      excludeUserId: req.user!.id,
+      type: 'schedule',
+      title: '새 일정 추가',
+      message: `${req.user!.name}님이 "${schedule.title}" 일정을 추가했습니다`,
     });
 
     res.status(201).json({ success: true, data: schedule });

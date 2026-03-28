@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
+import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
 
 const budgetSchema = z.object({
@@ -49,6 +50,14 @@ export async function createBudget(req: Request, res: Response, next: NextFuncti
       targetType: 'budget',
       targetId: budget.id,
       description: `${req.user.name}님이 경비 "${data.title} ${data.amount}${data.currency}"을 추가했습니다`,
+    });
+
+    notifyTripMembers({
+      tripId: param(req, 'id'),
+      excludeUserId: req.user!.id,
+      type: 'budget',
+      title: '새 경비 추가',
+      message: `${req.user!.name}님이 "${budget.title}" 경비를 추가했습니다`,
     });
 
     res.status(201).json({ success: true, data: budget });
