@@ -2,19 +2,21 @@ services:
   - type: web
     name: tripsync
     runtime: node
-    buildCommand: npm install && npm run build --workspace=client && npm run build --workspace=server && npx prisma generate --schema=server/prisma/schema.prisma
+    buildCommand: npm install && npm run build --workspace=client && npm run build --workspace=server && npx prisma generate --schema=server/prisma/schema.prisma && npx prisma migrate deploy --schema=server/prisma/schema.prisma
     startCommand: cd server && NODE_ENV=production node dist/app.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: tripsync-db
+          property: connectionString
       - key: DIRECT_URL
-        sync: false
+        fromDatabase:
+          name: tripsync-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      - key: CLIENT_URL
-        sync: false
 
 databases:
   - name: tripsync-db
