@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
 import { notifyTripMembers } from '../utils/notifier';
 import { param } from '../utils/params';
+import { isCloudinaryEnabled, uploadToCloudinary, getCloudinaryUrl } from '../utils/cloudinary';
 import sharp from 'sharp';
 import path from 'path';
 
@@ -43,39 +44,64 @@ export async function uploadPhotos(req: Request, res: Response, next: NextFuncti
     const photos = [];
 
     for (const file of req.files) {
-      const ext = path.extname(file.filename);
-      const baseName = path.basename(file.filename, ext);
+      if (isCloudinaryEnabled() && file.buffer) {
+        // Cloud upload
+        const result = await uploadToCloudinary(file.buffer, {
+          folder: `photos/${tripId}`,
+        });
+        const thumbUrl = getCloudinaryUrl(result.publicId, { width: 300, height: 300, crop: 'fill' });
+        const mediumUrl = getCloudinaryUrl(result.publicId, { width: 800 });
 
-      // Generate thumbnail (300px)
-      const thumbPath = path.join(UPLOAD_DIR, 'photos/thumbnails', `${baseName}_300${ext}`);
-      await sharp(file.path).resize(300, 300, { fit: 'cover' }).toFile(thumbPath);
+        const photo = await prisma.photo.create({
+          data: {
+            tripId,
+            uploaderId: req.user!.id,
+            filePath: result.url,
+            thumbnailPath: thumbUrl,
+            mediumPath: mediumUrl,
+            fileName: file.originalname,
+            fileSize: BigInt(file.size),
+            mimeType: file.mimetype,
+            width: result.width,
+            height: result.height,
+          },
+          include: {
+            uploader: { select: { id: true, name: true, avatarUrl: true } },
+          },
+        });
+        photos.push(photo);
+      } else {
+        // Local upload (fallback)
+        const ext = path.extname(file.filename || file.originalname);
+        const baseName = path.basename(file.filename || file.originalname, ext);
 
-      // Generate medium (800px)
-      const mediumPath = path.join(UPLOAD_DIR, 'photos/medium', `${baseName}_800${ext}`);
-      await sharp(file.path).resize(800, null, { withoutEnlargement: true }).toFile(mediumPath);
+        const thumbPath = path.join(UPLOAD_DIR, 'photos/thumbnails', `${baseName}_300${ext}`);
+        await sharp(file.path!).resize(300, 300, { fit: 'cover' }).toFile(thumbPath);
 
-      // Get image metadata
-      const metadata = await sharp(file.path).metadata();
+        const mediumPath = path.join(UPLOAD_DIR, 'photos/medium', `${baseName}_800${ext}`);
+        await sharp(file.path!).resize(800, null, { withoutEnlargement: true }).toFile(mediumPath);
 
-      const photo = await prisma.photo.create({
-        data: {
-          tripId,
-          uploaderId: req.user!.id,
-          filePath: `/uploads/photos/originals/${file.filename}`,
-          thumbnailPath: `/uploads/photos/thumbnails/${baseName}_300${ext}`,
-          mediumPath: `/uploads/photos/medium/${baseName}_800${ext}`,
-          fileName: file.originalname,
-          fileSize: BigInt(file.size),
-          mimeType: file.mimetype,
-          width: metadata.width,
-          height: metadata.height,
-        },
-        include: {
-          uploader: { select: { id: true, name: true, avatarUrl: true } },
-        },
-      });
+        const metadata = await sharp(file.path!).metadata();
 
-      photos.push(photo);
+        const photo = await prisma.photo.create({
+          data: {
+            tripId,
+            uploaderId: req.user!.id,
+            filePath: `/uploads/photos/originals/${file.filename}`,
+            thumbnailPath: `/uploads/photos/thumbnails/${baseName}_300${ext}`,
+            mediumPath: `/uploads/photos/medium/${baseName}_800${ext}`,
+            fileName: file.originalname,
+            fileSize: BigInt(file.size),
+            mimeType: file.mimetype,
+            width: metadata.width,
+            height: metadata.height,
+          },
+          include: {
+            uploader: { select: { id: true, name: true, avatarUrl: true } },
+          },
+        });
+        photos.push(photo);
+      }
     }
 
     await logActivity({
@@ -139,7 +165,6 @@ export async function deletePhoto(req: Request, res: Response, next: NextFunctio
     const photo = await prisma.photo.findUnique({ where: { id: param(req, 'pid') } });
     if (!photo) throw new AppError(404, 'PHOTO_NOT_FOUND', '사진을 찾을 수 없습니다.');
 
-    // Owner can delete any, others only their own
     if (req.memberRole !== 'owner' && photo.uploaderId !== req.user.id) {
       throw new AppError(403, 'PERMISSION_DENIED', '본인이 업로드한 사진만 삭제할 수 있습니다.');
     }

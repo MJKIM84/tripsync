@@ -2,38 +2,32 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { AppError } from './errorHandler';
+import { isCloudinaryEnabled } from '../utils/cloudinary';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+const useCloud = isCloudinaryEnabled();
 
-const photoStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.join(UPLOAD_DIR, 'photos/originals'));
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
-});
+// Memory storage for cloud uploads, disk for local
+const photoStorage = useCloud
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, path.join(UPLOAD_DIR, 'photos/originals')),
+      filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+    });
 
-const documentStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.join(UPLOAD_DIR, 'documents'));
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
-});
+const documentStorage = useCloud
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, path.join(UPLOAD_DIR, 'documents')),
+      filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+    });
 
-const avatarStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.join(UPLOAD_DIR, 'avatars'));
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  },
-});
+const avatarStorage = useCloud
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, path.join(UPLOAD_DIR, 'avatars')),
+      filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+    });
 
 const imageFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];

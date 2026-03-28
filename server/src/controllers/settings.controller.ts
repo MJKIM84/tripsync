@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { isCloudinaryEnabled, uploadToCloudinary } from '../utils/cloudinary';
 
 export async function getProfile(req: Request, res: Response, next: NextFunction) {
   try {
@@ -43,7 +44,16 @@ export async function uploadAvatar(req: Request, res: Response, next: NextFuncti
     if (!req.user) throw new AppError(401, 'AUTH_REQUIRED', '인증이 필요합니다.');
     if (!req.file) throw new AppError(400, 'FILE_REQUIRED', '파일이 필요합니다.');
 
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    let avatarUrl: string;
+    if (isCloudinaryEnabled() && req.file.buffer) {
+      const result = await uploadToCloudinary(req.file.buffer, {
+        folder: 'avatars',
+        publicId: req.user.id,
+      });
+      avatarUrl = result.url;
+    } else {
+      avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    }
     const user = await prisma.user.update({
       where: { id: req.user.id },
       data: { avatarUrl },

@@ -4,6 +4,7 @@ import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
 import { param } from '../utils/params';
+import { isCloudinaryEnabled, uploadToCloudinary } from '../utils/cloudinary';
 
 export async function getDocuments(req: Request, res: Response, next: NextFunction) {
   try {
@@ -25,12 +26,22 @@ export async function uploadDocument(req: Request, res: Response, next: NextFunc
 
     const { title, category, visibility } = req.body;
 
+    let filePath: string;
+    if (isCloudinaryEnabled() && req.file.buffer) {
+      const result = await uploadToCloudinary(req.file.buffer, {
+        folder: `documents/${param(req, 'id')}`,
+      });
+      filePath = result.url;
+    } else {
+      filePath = `/uploads/documents/${req.file.filename}`;
+    }
+
     const doc = await prisma.document.create({
       data: {
         tripId: param(req, 'id'),
         uploaderId: req.user.id,
         title: title || req.file.originalname,
-        filePath: `/uploads/documents/${req.file.filename}`,
+        filePath,
         fileName: req.file.originalname,
         fileSize: BigInt(req.file.size),
         mimeType: req.file.mimetype,
