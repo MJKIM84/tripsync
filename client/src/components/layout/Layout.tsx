@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { Compass, Bell, Search, User, LogOut, Settings } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Compass, Bell, Search, LogOut, Settings, Home, User } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useLogout } from '../../hooks/useAuth';
 import { useState } from 'react';
@@ -11,20 +11,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadCount();
+  const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#F8FAFC] pb-16 md:pb-0">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 md:h-16">
             <Link to="/" className="flex items-center gap-2">
-              <Compass className="w-7 h-7 text-navy" />
-              <span className="text-xl font-bold text-navy">TripSync</span>
+              <Compass className="w-6 h-6 md:w-7 md:h-7 text-navy" />
+              <span className="text-lg md:text-xl font-bold text-navy">TripSync</span>
             </Link>
 
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+            <div className="flex items-center gap-1.5 md:gap-3">
+              <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hidden md:block">
                 <Search className="w-5 h-5" />
               </button>
               <div className="relative">
@@ -34,7 +35,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] h-[18px]">
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] h-[18px]">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
@@ -91,9 +92,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden pb-safe">
+        <div className="flex items-center justify-around h-14">
+          <Link
+            to="/"
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 ${
+              location.pathname === '/' ? 'text-navy' : 'text-gray-400'
+            }`}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-[10px] font-medium">홈</span>
+          </Link>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 relative ${
+              showNotifications ? 'text-navy' : 'text-gray-400'
+            }`}
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+            <span className="text-[10px] font-medium">알림</span>
+          </button>
+          <Link
+            to="/settings"
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 ${
+              location.pathname === '/settings' ? 'text-navy' : 'text-gray-400'
+            }`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-medium">내 정보</span>
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 }

@@ -104,7 +104,7 @@ export default function ChatPage() {
   }, {});
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)]">
+    <div className="flex flex-col h-[calc(100vh-7.5rem)] md:h-[calc(100vh-5rem)]">
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
         <Link to={`/trips/${id}`} className="p-2 rounded-lg hover:bg-gray-100">

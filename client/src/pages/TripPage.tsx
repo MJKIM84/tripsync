@@ -98,17 +98,17 @@ export default function TripPage() {
       </div>
 
       {/* Navigation Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.path}
             to={`/trips/${id}/${item.path}`}
-            className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow group"
+            className="bg-white rounded-xl border border-gray-200 p-3 md:p-4 hover:shadow-md active:scale-[0.98] transition-all group"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 <item.icon className={`w-5 h-5 ${item.color}`} />
-                <span className="font-medium text-gray-700">{item.label}</span>
+                <span className="font-medium text-sm md:text-base text-gray-700">{item.label}</span>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
             </div>
